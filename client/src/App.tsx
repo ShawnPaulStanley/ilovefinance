@@ -30,8 +30,10 @@ import { WatchlistPanel } from './components/watchlist/WatchlistPanel';
 import { PortfolioModal } from './components/portfolio/PortfolioModal';
 
 export const App: React.FC = () => {
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('');
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([
+    { id: 'main-portfolio-1', name: 'Main Growth Portfolio', description: 'Primary Indian equities portfolio', is_default: 1, created_at: '', updated_at: '' }
+  ]);
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('main-portfolio-1');
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null);
   const [benchmarks, setBenchmarks] = useState<any | null>(null);
   const [marketStatus, setMarketStatus] = useState<MarketStatusResponse | null>(null);
@@ -53,21 +55,21 @@ export const App: React.FC = () => {
     try {
       setIsLoading(true);
       const [ports, bench, status, wList] = await Promise.all([
-        fetchPortfolios(),
-        fetchBenchmarks(),
+        fetchPortfolios().catch(() => []),
+        fetchBenchmarks().catch(() => null),
         fetchMarketStatus().catch(() => null),
         fetchWatchlist().catch(() => [])
       ]);
 
-      setPortfolios(ports);
-      setBenchmarks(bench);
-      if (status) setMarketStatus(status);
-      setWatchlistSymbols(new Set(wList.map(w => w.stock_symbol.toUpperCase())));
-
-      // Select default or first
-      if (ports.length > 0) {
+      if (ports && ports.length > 0) {
+        setPortfolios(ports);
         const defaultPort = ports.find(p => p.is_default) || ports[0];
         setSelectedPortfolioId(defaultPort.id);
+      }
+      if (bench) setBenchmarks(bench);
+      if (status) setMarketStatus(status);
+      if (wList && wList.length > 0) {
+        setWatchlistSymbols(new Set(wList.map(w => w.stock_symbol.toUpperCase())));
       }
     } catch (err) {
       console.error('Failed to load initial portfolio data:', err);
@@ -82,10 +84,10 @@ export const App: React.FC = () => {
 
   // 2. Load Analytics when selected portfolio or timeframe changes
   const loadPortfolioAnalytics = useCallback(async () => {
-    if (!selectedPortfolioId) return;
+    const portId = selectedPortfolioId || 'main-portfolio-1';
     try {
       setIsLoading(true);
-      const data = await fetchAnalytics(selectedPortfolioId, timeframe);
+      const data = await fetchAnalytics(portId, timeframe);
       setAnalytics(data);
     } catch (err) {
       console.error('Failed to load analytics:', err);
@@ -100,14 +102,23 @@ export const App: React.FC = () => {
 
   // Load sample portfolio action
   const handleLoadSample = async () => {
-    if (!selectedPortfolioId) return;
+    const portId = selectedPortfolioId || (portfolios[0]?.id) || 'main-portfolio-1';
+    setSelectedPortfolioId(portId);
     try {
       setIsLoading(true);
-      await seedSamplePortfolio(selectedPortfolioId);
+      await seedSamplePortfolio(portId);
       await loadInitial();
       await loadPortfolioAnalytics();
     } catch (err: any) {
-      alert(err.message || 'Failed to load sample portfolio');
+      console.error('Failed to load sample portfolio:', err);
+      // Retry once after 1s in case serverless cold-start
+      setTimeout(async () => {
+        try {
+          await loadInitial();
+          await loadPortfolioAnalytics();
+        } catch (_) {}
+      }, 1000);
+      alert(err.message || 'Connecting to portfolio service... please try again in a few seconds.');
     } finally {
       setIsLoading(false);
     }

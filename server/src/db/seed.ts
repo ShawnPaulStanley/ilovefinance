@@ -1,4 +1,5 @@
 import { db } from './connection.js';
+import { CalculationEngine } from '../services/calculationEngine.js';
 
 export interface StockSeed {
   symbol: string;
@@ -370,4 +371,41 @@ export function seedInitialData() {
   }
 
   console.log(`[Database] Seeded ${INITIAL_STOCKS.length} reference Indian stocks.`);
+
+  // Seed sample portfolio transactions if transactions table is empty
+  const txCount = db.prepare('SELECT count(*) as count FROM transactions').get() as { count: number };
+  if (txCount.count === 0) {
+    const defaultPortfolioId = 'main-portfolio-1';
+    const sampleTransactions = [
+      { id: 'tx_sample_1', portfolio_id: defaultPortfolioId, stock_symbol: 'RELIANCE.NS', type: 'BUY', quantity: 60, price: 1120.00, total_amount: 67200.00, transaction_date: '2024-03-15', notes: 'Initial bluechip investment in energy and retail giant' },
+      { id: 'tx_sample_2', portfolio_id: defaultPortfolioId, stock_symbol: 'RELIANCE.NS', type: 'BUY', quantity: 25, price: 1150.00, total_amount: 28750.00, transaction_date: '2024-06-10', notes: 'Accumulated on dip' },
+      { id: 'tx_sample_3', portfolio_id: defaultPortfolioId, stock_symbol: 'TCS.NS', type: 'BUY', quantity: 30, price: 2420.00, total_amount: 72600.00, transaction_date: '2024-01-05', notes: 'Core IT exposure' },
+      { id: 'tx_sample_4', portfolio_id: defaultPortfolioId, stock_symbol: 'TCS.NS', type: 'DIVIDEND', quantity: 30, price: 28.00, total_amount: 840.00, transaction_date: '2024-04-18', notes: 'Interim dividend payout' },
+      { id: 'tx_sample_5', portfolio_id: defaultPortfolioId, stock_symbol: 'HDFCBANK.NS', type: 'BUY', quantity: 80, price: 650.00, total_amount: 52000.00, transaction_date: '2024-01-22', notes: 'Private bank anchor' },
+      { id: 'tx_sample_6', portfolio_id: defaultPortfolioId, stock_symbol: 'INFY.NS', type: 'BUY', quantity: 60, price: 1080.00, total_amount: 64800.00, transaction_date: '2024-02-14', notes: 'Infosys large-cap tech' },
+      { id: 'tx_sample_7', portfolio_id: defaultPortfolioId, stock_symbol: 'ITC.NS', type: 'BUY', quantity: 150, price: 440.00, total_amount: 66000.00, transaction_date: '2023-09-01', notes: 'FMCG defensive & high dividend yield' },
+      { id: 'tx_sample_8', portfolio_id: defaultPortfolioId, stock_symbol: 'ITC.NS', type: 'DIVIDEND', quantity: 150, price: 6.25, total_amount: 937.50, transaction_date: '2024-02-15', notes: 'Interim dividend' },
+      { id: 'tx_sample_9', portfolio_id: defaultPortfolioId, stock_symbol: 'TATAMOTORS.NS', type: 'BUY', quantity: 80, price: 810.00, total_amount: 64800.00, transaction_date: '2024-02-01', notes: 'EV and commercial vehicle turnaround' },
+      { id: 'tx_sample_10', portfolio_id: defaultPortfolioId, stock_symbol: 'TATAMOTORS.NS', type: 'SELL', quantity: 20, price: 940.00, total_amount: 18800.00, transaction_date: '2024-08-12', notes: 'Booked partial profit on rally' },
+      { id: 'tx_sample_11', portfolio_id: defaultPortfolioId, stock_symbol: 'SUNPHARMA.NS', type: 'BUY', quantity: 40, price: 1680.00, total_amount: 67200.00, transaction_date: '2024-04-10', notes: 'Pharma healthcare growth' },
+      { id: 'tx_sample_12', portfolio_id: defaultPortfolioId, stock_symbol: 'BHARTIARTL.NS', type: 'BUY', quantity: 45, price: 1540.00, total_amount: 69300.00, transaction_date: '2024-05-15', notes: 'Telecom leader' },
+      { id: 'tx_sample_13', portfolio_id: defaultPortfolioId, stock_symbol: 'ZOMATO.NS', type: 'BUY', quantity: 250, price: 185.00, total_amount: 46250.00, transaction_date: '2024-03-01', notes: 'Consumer internet turnaround' },
+    ];
+
+    const insertTx = db.prepare(`
+      INSERT OR IGNORE INTO transactions (
+        id, portfolio_id, stock_symbol, type, quantity, price, total_amount, transaction_date, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    for (const tx of sampleTransactions) {
+      insertTx.run(
+        tx.id, tx.portfolio_id, tx.stock_symbol, tx.type, tx.quantity,
+        tx.price, tx.total_amount, tx.transaction_date, tx.notes
+      );
+    }
+
+    CalculationEngine.recalculatePortfolio(defaultPortfolioId);
+    console.log('[Database] Seeded 13 sample bluechip transactions and precomputed portfolio.');
+  }
 }
