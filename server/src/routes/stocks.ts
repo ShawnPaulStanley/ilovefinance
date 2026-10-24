@@ -5,22 +5,51 @@ import { db } from '../db/connection.js';
 export const stocksRouter = Router();
 
 // Search stocks
-stocksRouter.get('/search', (req: Request, res: Response) => {
+stocksRouter.get('/search', async (req: Request, res: Response) => {
   try {
     const q = req.query.q as string;
     if (!q || !q.trim()) {
       // Return top bluechips if empty query
       const topStocks = db.prepare(`
-        SELECT symbol, name, short_name, exchange, sector, current_price, prev_close, day_change_percent
+        SELECT symbol, symbol as stock_symbol, name, short_name, exchange, sector, current_price, prev_close, day_change_percent
         FROM stocks
         ORDER BY market_cap DESC
-        LIMIT 10
+        LIMIT 12
       `).all();
       return res.json(topStocks);
     }
 
-    const results = MarketDataService.searchStocks(q);
-    res.json(results);
+    let results = MarketDataService.searchStocks(q);
+
+    // If no match in local database, attempt dynamic quote fetch for the requested ticker
+    if (results.length === 0) {
+      const cleanQ = q.trim().toUpperCase().replace('.NS', '').replace('.BO', '');
+      const candidateSymbol = `${cleanQ}.NS`;
+      try {
+        const liveQuote = await MarketDataService.getQuote(candidateSymbol);
+        if (liveQuote && liveQuote.current_price > 0) {
+          results = [{
+            symbol: liveQuote.symbol,
+            stock_symbol: liveQuote.symbol,
+            name: liveQuote.name,
+            short_name: liveQuote.short_name,
+            exchange: liveQuote.exchange,
+            sector: liveQuote.sector,
+            current_price: liveQuote.current_price,
+            prev_close: liveQuote.prev_close,
+            day_change_percent: liveQuote.day_change_percent
+          }];
+        }
+      } catch (_e) {}
+    }
+
+    const mapped = results.map((r: any) => ({
+      ...r,
+      stock_symbol: r.stock_symbol || r.symbol,
+      symbol: r.symbol || r.stock_symbol
+    }));
+
+    res.json(mapped);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -100,31 +100,39 @@ export const WatchlistPanel: React.FC<WatchlistPanelProps> = ({
             <MagnifyingGlass size={16} weight="bold" className="text-[#8E9482] absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="SEARCH STOCK TO WATCH..."
+              placeholder="SEARCH STOCK TO WATCH (E.G. RELIANCE, TCS)..."
               value={search}
+              onFocus={() => {
+                if (searchResults.length === 0) {
+                  searchStocks(search || '').then(res => setSearchResults(res));
+                }
+              }}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-[#0D0D0D] text-xs text-white placeholder:text-[#8E9482] pl-10 pr-3.5 py-3 rounded-2xl border border-[#2B2F23] focus:outline-none focus:border-[#D7FF00] uppercase"
+              className="w-full bg-[#0D0D0D] text-xs text-white placeholder:text-[#8E9482] pl-10 pr-3.5 py-3 rounded-2xl border border-[#2B2F23] focus:outline-none focus:border-[#D7FF00] uppercase font-mono"
             />
           </div>
 
           {searchResults.length > 0 && (
-            <div className="mt-2 max-h-40 overflow-y-auto bg-[#0D0D0D] border border-[#2B2F23] rounded-2xl divide-y divide-[#2B2F23] font-mono">
-              {searchResults.map((st) => (
-                <div
-                  key={st.symbol}
-                  onClick={() => handleAdd(st.symbol)}
-                  className="p-3 hover:bg-[#1C2016] cursor-pointer flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <span className="font-bold text-white uppercase">{cleanTicker(st.symbol)}</span>
-                    <span className="text-[10px] text-[#8E9482] ml-2 uppercase">{st.name}</span>
+            <div className="mt-2 max-h-48 overflow-y-auto bg-[#0D0D0D] border border-[#2B2F23] rounded-2xl divide-y divide-[#2B2F23] font-mono shadow-2xl">
+              {searchResults.map((st) => {
+                const sym = st.symbol || st.stock_symbol;
+                return (
+                  <div
+                    key={sym}
+                    onClick={() => handleAdd(sym)}
+                    className="p-3 hover:bg-[#1C2016] cursor-pointer flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <span className="font-bold text-white uppercase">{cleanTicker(sym)}</span>
+                      <span className="text-[10px] text-[#8E9482] ml-2 uppercase">{st.name}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[#D7FF00] font-bold">{formatINR(st.current_price)}</span>
+                      <Plus size={14} weight="bold" className="text-[#D7FF00]" />
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-[#D7FF00] font-bold">{formatINR(st.current_price)}</span>
-                    <Plus size={14} weight="bold" className="text-[#D7FF00]" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

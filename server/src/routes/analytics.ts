@@ -38,7 +38,8 @@ analyticsRouter.get('/:portfolio_id', async (req: Request, res: Response) => {
 
     // Benchmark comparison vs NIFTY 50 and SENSEX
     const holdingsForBench = summary.holdings.map(h => ({ symbol: h.symbol, current_value: h.current_value }));
-    const benchmarkComparison = await MarketDataService.getBenchmarkComparison(holdingsForBench, range === '5Y' ? '1Y' : range);
+    const benchRange = (range === '1M' || range === '6M' || range === '1Y') ? range : '1Y';
+    const benchmarkComparison = await MarketDataService.getBenchmarkComparison(holdingsForBench, benchRange);
 
     res.json({
       summary,

@@ -38,7 +38,7 @@ export const App: React.FC = () => {
   const [benchmarks, setBenchmarks] = useState<any | null>(null);
   const [marketStatus, setMarketStatus] = useState<MarketStatusResponse | null>(null);
   const [watchlistSymbols, setWatchlistSymbols] = useState<Set<string>>(new Set());
-  const [timeframe, setTimeframe] = useState<'1W' | '1M' | '6M' | '1Y'>('1Y');
+  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [isLoading, setIsLoading] = useState(false);
 
   // Modals state

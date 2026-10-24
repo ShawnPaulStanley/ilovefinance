@@ -15,8 +15,8 @@ interface PerformanceChartProps {
   data: PortfolioHistoryPoint[];
   currentValue: number;
   totalInvested: number;
-  onTimeframeChange: (range: '1W' | '1M' | '6M' | '1Y') => void;
-  selectedRange: '1W' | '1M' | '6M' | '1Y';
+  onTimeframeChange: (range: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL') => void;
+  selectedRange: '1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL';
 }
 
 export const PerformanceChart: React.FC<PerformanceChartProps> = ({
@@ -29,16 +29,19 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
   const isNetGain = currentValue >= totalInvested;
   const strokeColor = isNetGain ? '#D7FF00' : '#FF4343';
 
-  const timeframes: Array<'1W' | '1M' | '6M' | '1Y'> = ['1W', '1M', '6M', '1Y'];
+  const timeframes: Array<'1D' | '1W' | '1M' | '6M' | '1Y' | 'ALL'> = ['1D', '1W', '1M', '6M', '1Y', 'ALL'];
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const val = payload[0].value;
       const inv = payload[0].payload.invested;
       const profit = val - inv;
+      const displayLabel = selectedRange === '1D'
+        ? (label.includes('T') ? `${label.split('T')[1].slice(0, 5)} IST` : `${label} IST`)
+        : formatDate(label);
       return (
         <div className="bg-[#0D0D0D] border-2 border-[#2B2F23] rounded-2xl p-4 shadow-2xl backdrop-blur-md">
-          <p className="text-xs text-[#8E9482] font-mono uppercase mb-2">{formatDate(label)}</p>
+          <p className="text-xs text-[#8E9482] font-mono uppercase mb-2">{displayLabel}</p>
           <div className="space-y-1.5 font-mono text-xs">
             <div className="flex justify-between space-x-6">
               <span className="text-[#8E9482] uppercase">Valuation:</span>
@@ -104,7 +107,21 @@ export const PerformanceChart: React.FC<PerformanceChartProps> = ({
               <CartesianGrid strokeDasharray="3 3" stroke="#2B2F23" vertical={false} />
               <XAxis 
                 dataKey="date" 
-                tickFormatter={(d) => formatDate(d).replace(/ [0-9]{4}$/, '')} 
+                tickFormatter={(d) => {
+                  if (!d) return '';
+                  if (selectedRange === '1D') {
+                    if (d.includes('T')) return d.split('T')[1].slice(0, 5);
+                    return d.slice(0, 5);
+                  }
+                  if (selectedRange === 'ALL') {
+                    if (d.includes('-')) {
+                      const p = d.split('-');
+                      return `'${p[0].slice(2)}`;
+                    }
+                    return d;
+                  }
+                  return formatDate(d).replace(/ [0-9]{4}$/, '');
+                }} 
                 stroke="#8E9482" 
                 fontSize={11}
                 fontFamily="JetBrains Mono"

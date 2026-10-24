@@ -283,8 +283,19 @@ export class AnalyticsService {
   /**
    * Generate portfolio historical equity curve
    */
-  public static async getPortfolioHistory(summary: PortfolioSummary, range: '1W' | '1M' | '6M' | '1Y' = '1Y') {
-    const daysMap = { '1W': 7, '1M': 30, '6M': 180, '1Y': 365 };
+  public static async getPortfolioHistory(
+    summary: PortfolioSummary, 
+    range: '1D' | '1W' | '1M' | '6M' | '1Y' | '5Y' | 'ALL' = '1Y'
+  ) {
+    const daysMap: Record<string, number> = { 
+      '1D': 1, 
+      '1W': 7, 
+      '1M': 30, 
+      '6M': 180, 
+      '1Y': 365, 
+      '5Y': 1825, 
+      'ALL': 3650 
+    };
     const days = daysMap[range] || 365;
 
     // Fetch benchmark as baseline market trend

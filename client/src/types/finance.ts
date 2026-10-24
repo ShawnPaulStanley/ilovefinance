@@ -1,3 +1,5 @@
+export type ChartTimeframe = '1D' | '1W' | '1M' | '6M' | '1Y' | '5Y' | 'ALL';
+
 export interface Portfolio {
   id: string;
   name: string;

@@ -27,6 +27,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [symbol, setSymbol] = useState(initialSymbol);
   const [searchQuery, setSearchQuery] = useState(initialSymbol);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [quantity, setQuantity] = useState<string>('10');
   const [price, setPrice] = useState<string>('');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -40,31 +41,30 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       setSymbol(initialSymbol);
       setSearchQuery(cleanTicker(initialSymbol));
       setError(null);
+      setShowDropdown(false);
 
       if (initialSymbol) {
         fetchStockQuote(initialSymbol).then(q => {
           setPrice(String(q.current_price));
         }).catch(() => {});
+      } else {
+        searchStocks('').then(res => setSearchResults(res)).catch(() => {});
       }
     }
   }, [isOpen, initialSymbol, initialType]);
 
   useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length === 0) {
-      setSearchResults([]);
-      return;
-    }
     const timer = setTimeout(() => {
-      searchStocks(searchQuery)
+      searchStocks(searchQuery || '')
         .then(res => setSearchResults(res))
         .catch(() => {});
-    }, 250);
+    }, 200);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
   if (!isOpen) return null;
 
-  const currentHolding = holdings.find(h => h.symbol.toLowerCase() === symbol.toLowerCase());
+  const currentHolding = holdings.find(h => (h.symbol || '').toLowerCase() === (symbol || '').toLowerCase());
   const maxSellQty = currentHolding ? currentHolding.quantity : 0;
 
   const numQty = parseFloat(quantity) || 0;
@@ -75,8 +75,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     e.preventDefault();
     setError(null);
 
-    if (!symbol) {
-      setError('Please select a stock instrument.');
+    const effectiveSymbol = symbol || (searchQuery.trim() ? (
+      searchQuery.trim().toUpperCase().endsWith('.NS') || searchQuery.trim().toUpperCase().endsWith('.BO')
+        ? searchQuery.trim().toUpperCase()
+        : `${searchQuery.trim().toUpperCase()}.NS`
+    ) : '');
+
+    if (!effectiveSymbol) {
+      setError('Please select or enter a valid stock instrument (e.g. RELIANCE, TCS, INFY).');
       return;
     }
 
@@ -85,8 +91,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       return;
     }
 
-    if (numPrice < 0 || isNaN(numPrice)) {
-      setError('Please enter a valid price.');
+    let finalPrice = numPrice;
+    if (finalPrice <= 0) {
+      try {
+        const q = await fetchStockQuote(effectiveSymbol);
+        if (q && q.current_price > 0) {
+          finalPrice = q.current_price;
+          setPrice(String(finalPrice));
+        }
+      } catch (_e) {}
+    }
+
+    if (finalPrice <= 0 || isNaN(finalPrice)) {
+      setError('Please enter a valid price per share.');
       return;
     }
 
@@ -99,10 +116,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     try {
       await addTransaction({
         portfolio_id: portfolioId,
-        stock_symbol: symbol,
+        stock_symbol: effectiveSymbol,
         type,
         quantity: numQty,
-        price: numPrice,
+        price: finalPrice,
         transaction_date: date,
         notes
       });
@@ -116,10 +133,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   };
 
   const handleSelectStock = (st: any) => {
-    setSymbol(st.symbol);
-    setSearchQuery(st.short_name || cleanTicker(st.symbol));
+    const sym = st.symbol || st.stock_symbol;
+    setSymbol(sym);
+    setSearchQuery(st.short_name || cleanTicker(sym));
     setPrice(String(st.current_price));
-    setSearchResults([]);
+    setShowDropdown(false);
   };
 
   return (
@@ -192,29 +210,54 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 type="text"
                 placeholder="SEARCH TICKER (E.G. RELIANCE, TCS, INFY)..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#141710] text-xs text-white placeholder:text-[#8E9482] pl-10 pr-3.5 py-3 rounded-2xl border border-[#2B2F23] focus:outline-none focus:border-[#D7FF00] uppercase"
+                onFocus={() => {
+                  setShowDropdown(true);
+                  if (searchResults.length === 0) {
+                    searchStocks(searchQuery || '').then(res => setSearchResults(res));
+                  }
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSearchQuery(val);
+                  setShowDropdown(true);
+                  if (!val.trim()) setSymbol('');
+                }}
+                className="w-full bg-[#141710] text-xs font-bold text-white placeholder:text-[#8E9482] pl-10 pr-3.5 py-3 rounded-2xl border border-[#2B2F23] focus:outline-none focus:border-[#D7FF00] uppercase font-mono"
               />
             </div>
 
+            {/* Selected ticker indicator */}
+            {symbol && (
+              <div className="mt-1.5 flex items-center justify-between px-3 py-1 bg-[#1C2016] border border-[#D7FF00]/30 rounded-xl text-[11px] text-[#D7FF00]">
+                <span>SELECTED: <strong>{symbol}</strong></span>
+                <span className="text-[#8E9482] text-[10px]">CLICK TO CHANGE</span>
+              </div>
+            )}
+
             {/* Autocomplete dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-[#0D0D0D] border-2 border-[#2B2F23] rounded-2xl shadow-2xl z-20 divide-y divide-[#2B2F23]">
-                {searchResults.map((st) => (
-                  <div
-                    key={st.symbol}
-                    onClick={() => handleSelectStock(st)}
-                    className="p-3 hover:bg-[#1C2016] cursor-pointer flex items-center justify-between text-xs transition"
-                  >
-                    <div>
-                      <span className="font-bold text-white uppercase">{cleanTicker(st.symbol)}</span>
-                      <span className="text-[10px] text-[#8E9482] ml-2 uppercase">{st.name}</span>
+            {showDropdown && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-[#0D0D0D] border-2 border-[#2B2F23] rounded-2xl shadow-2xl z-30 divide-y divide-[#2B2F23]">
+                {searchResults.map((st) => {
+                  const sym = st.symbol || st.stock_symbol;
+                  return (
+                    <div
+                      key={sym}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleSelectStock(st);
+                      }}
+                      className="p-3 hover:bg-[#1C2016] cursor-pointer flex items-center justify-between text-xs transition"
+                    >
+                      <div className="truncate mr-2">
+                        <span className="font-bold text-white uppercase">{cleanTicker(sym)}</span>
+                        <span className="text-[10px] text-[#8E9482] ml-2 uppercase truncate">{st.name}</span>
+                      </div>
+                      <div className="font-mono text-[#D7FF00] font-bold shrink-0">
+                        {formatINR(st.current_price)}
+                      </div>
                     </div>
-                    <div className="font-mono text-[#D7FF00] font-bold">
-                      {formatINR(st.current_price)}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

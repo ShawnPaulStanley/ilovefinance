@@ -429,7 +429,7 @@ export class MarketDataService {
    */
   public static async getHistoricalPrices(
     symbolInput: string,
-    range: '1W' | '1M' | '6M' | '1Y' | '5Y' = '1Y'
+    range: '1D' | '1W' | '1M' | '6M' | '1Y' | '5Y' | 'ALL' = '1Y'
   ): Promise<HistoricalPoint[]> {
     const symbol = this.normalizeSymbol(symbolInput);
     const cacheKey = `${symbol}_${range}`;
@@ -456,11 +456,13 @@ export class MarketDataService {
 
     // Range mappings for secondary source
     const rangeMap: Record<string, { yfRange: string; interval: string; days: number }> = {
+      '1D': { yfRange: '1d', interval: '5m', days: 1 },
       '1W': { yfRange: '5d', interval: '15m', days: 7 },
       '1M': { yfRange: '1mo', interval: '1d', days: 30 },
       '6M': { yfRange: '6mo', interval: '1d', days: 180 },
       '1Y': { yfRange: '1y', interval: '1d', days: 365 },
-      '5Y': { yfRange: '5y', interval: '1wk', days: 1825 }
+      '5Y': { yfRange: '5y', interval: '1wk', days: 1825 },
+      'ALL': { yfRange: 'max', interval: '1mo', days: 3650 }
     };
 
     const config = rangeMap[range] || rangeMap['1Y'];
@@ -485,7 +487,9 @@ export class MarketDataService {
           for (let i = 0; i < timestamps.length; i++) {
             if (closes[i] !== null && closes[i] !== undefined) {
               const d = new Date(timestamps[i] * 1000);
-              const dateStr = d.toISOString().split('T')[0];
+              const dateStr = range === '1D' 
+                ? d.toISOString() 
+                : d.toISOString().split('T')[0];
               points.push({
                 date: dateStr,
                 price: Number(closes[i].toFixed(2))
@@ -505,7 +509,7 @@ export class MarketDataService {
 
     // Resilient fallback: Generate realistic price curve anchored to current price
     const quote = await this.getQuote(symbol);
-    const points = this.generateRealisticHistory(quote.current_price, config.days, symbol);
+    const points = this.generateRealisticHistory(quote.current_price, config.days, symbol, range);
     this.historyCache.set(cacheKey, { history: points, timestamp: now });
     return points;
   }
@@ -513,7 +517,7 @@ export class MarketDataService {
   /**
    * Deterministic historical curve generator for offline / fallback mode
    */
-  private static generateRealisticHistory(currentPrice: number, days: number, seedKey: string): HistoricalPoint[] {
+  private static generateRealisticHistory(currentPrice: number, days: number, seedKey: string, range?: string): HistoricalPoint[] {
     const points: HistoricalPoint[] = [];
     const today = new Date();
 
@@ -526,6 +530,54 @@ export class MarketDataService {
       hash = (hash * 9301 + 49297) % 233280;
       return hash / 233280;
     };
+
+    if (range === '1D') {
+      const numBars = 75;
+      const prices: number[] = [currentPrice];
+      let p = currentPrice;
+      for (let i = 1; i < numBars; i++) {
+        const u1 = Math.max(0.0001, pseudoRandom());
+        const u2 = Math.max(0.0001, pseudoRandom());
+        const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        p = p / (1 + 0.0022 * z);
+        prices.unshift(Number(p.toFixed(2)));
+      }
+      const start = new Date(today);
+      start.setHours(9, 15, 0, 0);
+      for (let i = 0; i < prices.length; i++) {
+        const pointTime = new Date(start.getTime() + i * 5 * 60 * 1000);
+        points.push({
+          date: pointTime.toISOString(),
+          price: prices[i]
+        });
+      }
+      return points;
+    }
+
+    if (range === 'ALL') {
+      const months = 120;
+      const prices: number[] = [currentPrice];
+      let p = currentPrice;
+      for (let i = 1; i < months; i++) {
+        const u1 = Math.max(0.0001, pseudoRandom());
+        const u2 = Math.max(0.0001, pseudoRandom());
+        const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        const ret = 0.011 + 0.04 * z;
+        p = p / (1 + ret);
+        prices.unshift(Number(p.toFixed(2)));
+      }
+      const start = new Date(today);
+      start.setFullYear(start.getFullYear() - 10);
+      for (let i = 0; i < prices.length; i++) {
+        const d = new Date(start);
+        d.setMonth(d.getMonth() + i);
+        points.push({
+          date: d.toISOString().split('T')[0],
+          price: prices[i]
+        });
+      }
+      return points;
+    }
 
     const drift = 0.14 / 252;
     const volatility = 0.18 / Math.sqrt(252);
@@ -566,7 +618,7 @@ export class MarketDataService {
   public static searchStocks(query: string) {
     const q = `%${query.trim().toUpperCase()}%`;
     const results = db.prepare(`
-      SELECT symbol, name, short_name, exchange, sector, current_price, prev_close, day_change_percent
+      SELECT symbol, symbol as stock_symbol, name, short_name, exchange, sector, current_price, prev_close, day_change_percent
       FROM stocks
       WHERE UPPER(symbol) LIKE ? OR UPPER(name) LIKE ? OR UPPER(short_name) LIKE ? OR UPPER(sector) LIKE ?
       ORDER BY market_cap DESC

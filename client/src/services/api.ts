@@ -12,7 +12,9 @@ import {
   FALLBACK_ANALYTICS, 
   FALLBACK_BENCHMARKS, 
   FALLBACK_MARKET_STATUS, 
-  FALLBACK_WATCHLIST 
+  FALLBACK_WATCHLIST,
+  INDIAN_STOCKS_CATALOG,
+  generateClientFallbackHistory
 } from './fallbackData';
 
 const BASE_URL = '/api';
@@ -181,13 +183,56 @@ export async function deleteTransaction(id: string): Promise<{ summary: Portfoli
 
 export async function searchStocks(query: string) {
   try {
-    const res = await fetch(`${BASE_URL}/stocks/search?q=${encodeURIComponent(query)}`);
-    if (res.ok) return await res.json();
+    const res = await fetch(`${BASE_URL}/stocks/search?q=${encodeURIComponent(query || '')}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data.map((st: any) => ({
+          ...st,
+          symbol: st.symbol || st.stock_symbol,
+          stock_symbol: st.stock_symbol || st.symbol
+        }));
+      }
+    }
   } catch (err) {
     console.warn('[API] Search stocks fallback:', err);
   }
-  const q = query.toLowerCase();
-  return FALLBACK_WATCHLIST.filter(s => s.name.toLowerCase().includes(q) || s.stock_symbol.toLowerCase().includes(q));
+
+  const q = (query || '').trim().toLowerCase();
+  if (!q) {
+    return INDIAN_STOCKS_CATALOG.slice(0, 12);
+  }
+
+  const matched = INDIAN_STOCKS_CATALOG.filter(s => 
+    s.name.toLowerCase().includes(q) || 
+    s.symbol.toLowerCase().includes(q) ||
+    s.short_name.toLowerCase().includes(q) ||
+    s.sector.toLowerCase().includes(q)
+  );
+
+  if (matched.length > 0) return matched;
+
+  const cleanQ = q.toUpperCase().replace('.NS', '').replace('.BO', '');
+  const syntheticSymbol = `${cleanQ}.NS`;
+  return [
+    {
+      symbol: syntheticSymbol,
+      stock_symbol: syntheticSymbol,
+      name: `${cleanQ} Equities`,
+      short_name: cleanQ,
+      sector: 'Diversified',
+      exchange: 'NSE',
+      current_price: 500.00,
+      prev_close: 495.00,
+      day_change: 5.00,
+      day_change_percent: 1.01,
+      fifty_two_week_high: 620.00,
+      fifty_two_week_low: 380.00,
+      market_cap: 25000,
+      pe_ratio: 22.0,
+      dividend_yield: 1.0
+    }
+  ];
 }
 
 export async function fetchStockQuote(symbol: string): Promise<StockQuote> {
@@ -198,22 +243,33 @@ export async function fetchStockQuote(symbol: string): Promise<StockQuote> {
     console.warn('[API] Stock quote fallback:', err);
   }
 
-  const found = FALLBACK_WATCHLIST.find(w => w.stock_symbol.toLowerCase() === symbol.toLowerCase());
+  const norm = symbol.toUpperCase();
+  const found = INDIAN_STOCKS_CATALOG.find(w => 
+    w.symbol.toUpperCase() === norm || 
+    w.short_name.toUpperCase() === norm ||
+    w.symbol.toUpperCase().replace('.NS', '') === norm.replace('.NS', '')
+  );
+
+  const price = found?.current_price || 1200;
+  const prevClose = found?.prev_close || (price * 0.99);
+  const change = Number((price - prevClose).toFixed(2));
+  const changePct = Number(((change / prevClose) * 100).toFixed(2));
+
   return {
-    symbol: symbol.toUpperCase(),
-    name: found?.name || symbol,
-    short_name: found?.short_name || symbol,
+    symbol: found?.symbol || norm,
+    name: found?.name || norm,
+    short_name: found?.short_name || norm.replace('.NS', '').replace('.BO', ''),
     exchange: 'NSE',
     sector: found?.sector || 'Diversified',
-    current_price: found?.current_price || 1200,
-    prev_close: found?.prev_close || 1190,
-    day_change: found?.day_change || 10,
-    day_change_percent: found?.day_change_percent || 0.84,
-    fifty_two_week_high: (found?.current_price || 1200) * 1.15,
-    fifty_two_week_low: (found?.current_price || 1200) * 0.85,
-    market_cap: 100000,
-    pe_ratio: 24.5,
-    dividend_yield: 1.2,
+    current_price: price,
+    prev_close: prevClose,
+    day_change: change,
+    day_change_percent: changePct,
+    fifty_two_week_high: found?.fifty_two_week_high || (price * 1.15),
+    fifty_two_week_low: found?.fifty_two_week_low || (price * 0.85),
+    market_cap: found?.market_cap || 100000,
+    pe_ratio: found?.pe_ratio || 24.5,
+    dividend_yield: found?.dividend_yield || 1.2,
     currency: 'INR',
     is_delayed: false,
     last_updated: new Date().toISOString()
@@ -223,11 +279,14 @@ export async function fetchStockQuote(symbol: string): Promise<StockQuote> {
 export async function fetchStockHistory(symbol: string, range: string = '1Y') {
   try {
     const res = await fetch(`${BASE_URL}/stocks/${encodeURIComponent(symbol)}/history?range=${range}`);
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
   } catch (err) {
     console.warn('[API] History fallback:', err);
   }
-  return FALLBACK_ANALYTICS.history.map(h => ({ date: h.date, price: h.value / 60 }));
+  return generateClientFallbackHistory(symbol, range);
 }
 
 export async function fetchBenchmarks() {
@@ -289,5 +348,21 @@ export async function fetchAnalytics(portfolioId: string, range: string = '1Y'):
   } catch (err) {
     console.warn('[API] Fetch analytics fallback:', err);
   }
-  return FALLBACK_ANALYTICS;
+
+  const baseVal = FALLBACK_PORTFOLIO.total_value || 729395;
+  const baseInv = FALLBACK_PORTFOLIO.total_invested || 633450;
+  const historySeries = generateClientFallbackHistory('^NSEI', range).map(p => {
+    const estimatedValue = Number((baseVal * (p.price / 24850)).toFixed(2));
+    return {
+      date: p.date,
+      value: estimatedValue,
+      invested: baseInv,
+      profit: Number((estimatedValue - baseInv).toFixed(2))
+    };
+  });
+
+  return {
+    ...FALLBACK_ANALYTICS,
+    history: historySeries
+  };
 }

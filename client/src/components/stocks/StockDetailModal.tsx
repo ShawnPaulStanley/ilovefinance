@@ -39,7 +39,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 }) => {
   const [quote, setQuote] = useState<StockQuote | null>(null);
   const [history, setHistory] = useState<Array<{ date: string; price: number }>>([]);
-  const [timeframe, setTimeframe] = useState<'1W' | '1M' | '6M' | '1Y' | '5Y'>('1Y');
+  const [timeframe, setTimeframe] = useState<'1D' | '1W' | '1M' | '6M' | '1Y' | '5Y' | 'ALL'>('1Y');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -173,11 +173,11 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-[#2B2F23]">
               <div className="font-display text-xl font-bold uppercase tracking-wide text-white">PRICE TRAJECTORY</div>
               <div className="flex items-center space-x-1 bg-[#0D0D0D] p-1.5 rounded-2xl border border-[#2B2F23]">
-                {(['1W', '1M', '6M', '1Y', '5Y'] as const).map((tf) => (
+                {(['1D', '1W', '1M', '6M', '1Y', '5Y', 'ALL'] as const).map((tf) => (
                   <button
                     key={tf}
                     onClick={() => setTimeframe(tf)}
-                    className={`px-3 py-1 text-xs font-mono font-bold uppercase rounded-xl transition ${
+                    className={`px-2.5 py-1 text-xs font-mono font-bold uppercase rounded-xl transition ${
                       timeframe === tf ? 'bg-[#D7FF00] text-black shadow-[0_0_10px_rgba(215,255,0,0.35)]' : 'text-[#8E9482] hover:text-white'
                     }`}
                   >
@@ -204,7 +204,21 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     <CartesianGrid strokeDasharray="3 3" stroke="#2B2F23" vertical={false} />
                     <XAxis 
                       dataKey="date" 
-                      tickFormatter={(d) => formatDate(d).replace(/ [0-9]{4}$/, '')} 
+                      tickFormatter={(d) => {
+                        if (!d) return '';
+                        if (timeframe === '1D') {
+                          if (d.includes('T')) return d.split('T')[1].slice(0, 5);
+                          return d.slice(0, 5);
+                        }
+                        if (timeframe === 'ALL') {
+                          if (d.includes('-')) {
+                            const p = d.split('-');
+                            return `'${p[0].slice(2)}`;
+                          }
+                          return d;
+                        }
+                        return formatDate(d).replace(/ [0-9]{4}$/, '');
+                      }} 
                       stroke="#8E9482" 
                       fontSize={11} 
                       fontFamily="JetBrains Mono"
@@ -222,9 +236,12 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     <Tooltip 
                       content={({ active, payload, label }) => {
                         if (active && payload && payload.length) {
+                          const displayLabel = timeframe === '1D'
+                            ? (label.includes('T') ? `${label.split('T')[1].slice(0, 5)} IST` : `${label} IST`)
+                            : (timeframe === 'ALL' ? formatDate(label) : formatDate(label));
                           return (
                             <div className="bg-[#0D0D0D] border-2 border-[#2B2F23] p-3 rounded-2xl font-mono text-xs shadow-2xl">
-                              <div className="text-[#8E9482] uppercase">{formatDate(label)}</div>
+                              <div className="text-[#8E9482] uppercase">{displayLabel}</div>
                               <div className="text-white font-bold mt-1 text-sm">{formatINR(payload[0].value as number)}</div>
                             </div>
                           );
