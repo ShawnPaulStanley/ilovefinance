@@ -219,5 +219,25 @@ Execute `database/schema.sql` to initialize PostgreSQL tables.
 
 ---
 
+## 🚀 Deploying to Vercel
+
+`ilovefinance` is fully configured for serverless deployment on [Vercel](https://vercel.com):
+
+1. **Push to GitHub**: Ensure your latest code is on your repository (e.g., `https://github.com/ShawnPaulStanley/ilovefinance`).
+2. **Import to Vercel**:
+   - Go to [vercel.com/new](https://vercel.com/new) and select your `ilovefinance` repository.
+   - Vercel automatically detects `vercel.json` with:
+     - **Framework Preset**: Vite / Other
+     - **Build Command**: `npm run build`
+     - **Output Directory**: `client/dist`
+     - **Serverless API**: `api/index.js`
+3. **Configure Environment Variables**:
+   In Vercel project settings, add:
+   - `ALPHA_VANTAGE_API_KEY`: `your_alpha_vantage_key` (e.g. `FBJJE5VK81ONGBX8`)
+4. **Deploy**:
+   Click **Deploy**. Your app will be live with high-speed CDN static asset delivery and serverless API execution!
+
+---
+
 ## 📄 License
 MIT License. Built for Indian stock market investors.
