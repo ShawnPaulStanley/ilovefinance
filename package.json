@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Production-quality Stock Portfolio Analyzer for Indian Markets (NSE/BSE)",
   "engines": {
-    "node": ">=22.5.0"
+    "node": "22.x"
   },
   "scripts": {
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
