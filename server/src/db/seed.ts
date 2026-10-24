@@ -289,19 +289,19 @@ export const INITIAL_STOCKS: StockSeed[] = [
     prev_close: 153.10,
   },
   {
-    symbol: 'ZOMATO.NS',
-    name: 'Zomato Limited',
-    short_name: 'Zomato',
+    symbol: 'HINDUNILVR.NS',
+    name: 'Hindustan Unilever Limited',
+    short_name: 'HUL',
     exchange: 'NSE',
-    sector: 'Consumer Services / Tech',
-    industry: 'Online Food Delivery & Quick Commerce',
-    market_cap: 230000,
-    pe_ratio: 118.0,
-    dividend_yield: 0.0,
-    fifty_two_week_high: 298.20,
-    fifty_two_week_low: 104.50,
-    current_price: 265.40,
-    prev_close: 260.10,
+    sector: 'FMCG',
+    industry: 'Personal & Household Products',
+    market_cap: 580000,
+    pe_ratio: 56.4,
+    dividend_yield: 1.65,
+    fifty_two_week_high: 3035.00,
+    fifty_two_week_low: 2172.00,
+    current_price: 2490.00,
+    prev_close: 2478.50,
   },
   {
     symbol: 'BEL.NS',
@@ -362,13 +362,21 @@ export function seedInitialData() {
   // Seed initial watchlist if empty
   const watchlistCount = db.prepare('SELECT count(*) as count FROM watchlist').get() as { count: number };
   if (watchlistCount.count === 0) {
-    const initialWatchlist = ['RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS', 'ZOMATO.NS', 'TATAMOTORS.NS'];
+    const initialWatchlist = ['RELIANCE.NS', 'TCS.NS', 'INFY.NS', 'HDFCBANK.NS', 'SBIN.NS', 'TATAMOTORS.NS'];
     const insertWatch = db.prepare('INSERT OR IGNORE INTO watchlist (id, stock_symbol, notes) VALUES (?, ?, ?)');
     initialWatchlist.forEach((sym, idx) => {
-      insertWatch.run(`watch-${idx + 1}`, sym, 'Core watchlist ticker');
+      insertWatch.run(`watch-${idx + 1}`, sym, 'Core bluechip watchlist ticker');
     });
     console.log('[Database] Seeded default watchlist.');
   }
+
+  // Purge any legacy Zomato records
+  try {
+    db.prepare("DELETE FROM watchlist WHERE stock_symbol LIKE '%ZOMATO%'").run();
+    db.prepare("DELETE FROM transactions WHERE stock_symbol LIKE '%ZOMATO%'").run();
+    db.prepare("DELETE FROM holdings WHERE stock_symbol LIKE '%ZOMATO%'").run();
+    db.prepare("DELETE FROM stocks WHERE symbol LIKE '%ZOMATO%'").run();
+  } catch (_e) {}
 
   console.log(`[Database] Seeded ${INITIAL_STOCKS.length} reference Indian stocks.`);
 
@@ -389,7 +397,7 @@ export function seedInitialData() {
       { id: 'tx_sample_10', portfolio_id: defaultPortfolioId, stock_symbol: 'TATAMOTORS.NS', type: 'SELL', quantity: 20, price: 940.00, total_amount: 18800.00, transaction_date: '2024-08-12', notes: 'Booked partial profit on rally' },
       { id: 'tx_sample_11', portfolio_id: defaultPortfolioId, stock_symbol: 'SUNPHARMA.NS', type: 'BUY', quantity: 40, price: 1680.00, total_amount: 67200.00, transaction_date: '2024-04-10', notes: 'Pharma healthcare growth' },
       { id: 'tx_sample_12', portfolio_id: defaultPortfolioId, stock_symbol: 'BHARTIARTL.NS', type: 'BUY', quantity: 45, price: 1540.00, total_amount: 69300.00, transaction_date: '2024-05-15', notes: 'Telecom leader' },
-      { id: 'tx_sample_13', portfolio_id: defaultPortfolioId, stock_symbol: 'ZOMATO.NS', type: 'BUY', quantity: 250, price: 185.00, total_amount: 46250.00, transaction_date: '2024-03-01', notes: 'Consumer internet turnaround' },
+      { id: 'tx_sample_13', portfolio_id: defaultPortfolioId, stock_symbol: 'SBIN.NS', type: 'BUY', quantity: 70, price: 740.00, total_amount: 51800.00, transaction_date: '2024-03-01', notes: 'India largest public sector bank' },
     ];
 
     const insertTx = db.prepare(`

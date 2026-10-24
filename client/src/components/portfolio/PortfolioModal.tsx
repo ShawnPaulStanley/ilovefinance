@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Trash, FolderPlus } from '@phosphor-icons/react';
+import { X, Trash, FolderPlus, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { Portfolio } from '../../types/finance';
-import { createPortfolio, deletePortfolio } from '../../services/api';
+import { createPortfolio, deletePortfolio, clearPortfolio } from '../../services/api';
 import { formatINR } from '../../utils/formatters';
 
 interface PortfolioModalProps {
@@ -63,6 +63,17 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
     }
   };
 
+  const handleClear = async (id: string) => {
+    if (window.confirm('Reset this portfolio? All transactions and holdings will be cleared so you can add your own fresh stocks.')) {
+      try {
+        await clearPortfolio(id);
+        onPortfoliosChanged();
+      } catch (err: any) {
+        alert(err.message || 'Failed to reset portfolio');
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
       <div 
@@ -115,6 +126,13 @@ export const PortfolioModal: React.FC<PortfolioModalProps> = ({
                 </div>
 
                 <div className="flex items-center space-x-2" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => handleClear(p.id)}
+                    className="p-2 rounded-xl text-[#8E9482] hover:text-[#D7FF00] hover:bg-[#D7FF00]/10 transition"
+                    title="Reset & Clear All Trades (Start Fresh)"
+                  >
+                    <ArrowCounterClockwise size={16} weight="bold" />
+                  </button>
                   {portfolios.length > 1 && (
                     <button
                       onClick={() => handleDelete(p.id)}

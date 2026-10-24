@@ -126,6 +126,26 @@ portfoliosRouter.delete('/:id', (req: Request, res: Response) => {
   }
 });
 
+// POST clear all transactions and reset portfolio to empty
+portfoliosRouter.post('/:id/clear', (req: Request, res: Response) => {
+  try {
+    const portfolioId = req.params.id;
+    const portfolio = db.prepare('SELECT * FROM portfolios WHERE id = ?').get(portfolioId);
+    if (!portfolio) {
+      return res.status(404).json({ error: 'Portfolio not found' });
+    }
+
+    db.prepare('DELETE FROM transactions WHERE portfolio_id = ?').run(portfolioId);
+    db.prepare('DELETE FROM dividends WHERE portfolio_id = ?').run(portfolioId);
+    db.prepare('DELETE FROM holdings WHERE portfolio_id = ?').run(portfolioId);
+
+    const summary = CalculationEngine.recalculatePortfolio(portfolioId);
+    res.json({ message: 'Portfolio cleared successfully', summary });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST seed sample Indian portfolio transactions
 portfoliosRouter.post('/:id/seed-sample', (req: Request, res: Response) => {
   try {
@@ -276,13 +296,13 @@ portfoliosRouter.post('/:id/seed-sample', (req: Request, res: Response) => {
       {
         id: `tx_sample_13`,
         portfolio_id: portfolioId,
-        stock_symbol: 'ZOMATO.NS',
+        stock_symbol: 'SBIN.NS',
         type: 'BUY',
-        quantity: 250,
-        price: 185.00,
-        total_amount: 46250.00,
-        transaction_date: '2024-05-15',
-        notes: 'Quick commerce and food delivery leader'
+        quantity: 70,
+        price: 740.00,
+        total_amount: 51800.00,
+        transaction_date: '2024-03-01',
+        notes: 'India largest public sector bank'
       }
     ];
 

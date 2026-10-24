@@ -34,7 +34,7 @@ A modern fintech-grade web application built for Indian stock market investors t
 - **Multiple Portfolios**:
   - Create and switch between multiple portfolios (e.g., *Core Bluechips*, *High-Growth Smallcaps*, *Retirement*).
 - **1-Click Sample Portfolio Import**:
-  - Instantly load a balanced Indian bluechip portfolio (Reliance, TCS, HDFC Bank, Infosys, ITC, Tata Motors, Sun Pharma, Zomato) to explore analytics with a single click.
+  - Instantly load a balanced Indian bluechip portfolio (Reliance, TCS, HDFC Bank, Infosys, ITC, Tata Motors, Sun Pharma, State Bank of India) to explore analytics with a single click.
 
 ---
 

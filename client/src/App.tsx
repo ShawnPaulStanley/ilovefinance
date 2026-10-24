@@ -309,7 +309,10 @@ export const App: React.FC = () => {
           setSelectedPortfolioId(id);
           setPortfolioModalOpen(false);
         }}
-        onPortfoliosChanged={loadInitial}
+        onPortfoliosChanged={() => {
+          loadInitial();
+          loadPortfolioAnalytics();
+        }}
       />
 
     </div>

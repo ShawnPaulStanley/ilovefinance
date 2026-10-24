@@ -83,6 +83,33 @@ export async function deletePortfolio(id: string): Promise<void> {
   }
 }
 
+export async function clearPortfolio(id: string): Promise<{ message: string; summary: PortfolioSummary }> {
+  try {
+    const res = await fetch(`${BASE_URL}/portfolios/${id}/clear`, { method: 'POST' });
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn('[API] Clear portfolio remote call error:', err);
+  }
+  return {
+    message: 'Portfolio cleared',
+    summary: {
+      portfolio_id: id,
+      total_value: 0,
+      total_invested: 0,
+      unrealized_pl: 0,
+      unrealized_pl_percent: 0,
+      realized_pl: 0,
+      total_dividends: 0,
+      total_pnl: 0,
+      total_return_percent: 0,
+      todays_pl: 0,
+      todays_pl_percent: 0,
+      holdings_count: 0,
+      holdings: []
+    }
+  };
+}
+
 export async function seedSamplePortfolio(id: string): Promise<{ message: string; summary: PortfolioSummary }> {
   try {
     const res = await fetch(`${BASE_URL}/portfolios/${id}/seed-sample`, { method: 'POST' });
