@@ -21,14 +21,12 @@ if (clientDist) {
   console.warn('[ilovefinance] Notice: client/dist not found. Run "npm run build" to build client assets.');
 }
 
-// Only start standalone HTTP server when not running in a serverless lambda (e.g. Vercel)
-if (!process.env.VERCEL) {
-  const portNumber = Number(PORT) || 5000;
-  app.listen(portNumber, '0.0.0.0', () => {
-    console.log(`[ilovefinance Server] Running on http://localhost:${portNumber}`);
-    console.log(`[ilovefinance Server] Running on http://127.0.0.1:${portNumber}`);
-  });
-}
+// Start HTTP server when executed as standalone service (Local, VPS, or Vercel Services)
+const portNumber = Number(PORT) || 5000;
+app.listen(portNumber, '0.0.0.0', () => {
+  console.log(`[ilovefinance Server] Running on http://localhost:${portNumber}`);
+  console.log(`[ilovefinance Server] Running on http://127.0.0.1:${portNumber}`);
+});
 
 export { app };
 export default app;
